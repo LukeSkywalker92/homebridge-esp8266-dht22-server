@@ -1,4 +1,3 @@
-var http = require('http');
 var server = require('./server')
 var Accessory, Service, Characteristic, UUIDGen;
 
