@@ -28,42 +28,18 @@ function Esp8266Dht22Server(log, config, api) {
   this.config = config;
   this.accessories = [];
 
-  server(log, platform);
-
-  this.requestServer = http.createServer(function(request, response) {
-    if (request.url === "/add") {
-      this.addAccessory(new Date().toISOString());
-      response.writeHead(204);
-      response.end();
-    }
-
-    if (request.url == "/reachability") {
-      this.updateAccessoriesReachability();
-      response.writeHead(204);
-      response.end();
-    }
-
-    if (request.url == "/remove") {
-      this.removeAccessory();
-      response.writeHead(204);
-      response.end();
-    }
-  }.bind(this));
-
-  this.requestServer.listen(18081, function() {
-    platform.log("Server Listening...");
-  });
+  server(log, platform, config.port);
 
   if (api) {
-      // Save the API object as plugin needs to register new accessory via this object
-      this.api = api;
+    // Save the API object as plugin needs to register new accessory via this object
+    this.api = api;
 
-      // Listen to event "didFinishLaunching", this means homebridge already finished loading cached accessories.
-      // Platform Plugin should only register new accessory that doesn't exist in homebridge after this event.
-      // Or start discover new accessories.
-      this.api.on('didFinishLaunching', function() {
-        platform.log("DidFinishLaunching");
-      }.bind(this));
+    // Listen to event "didFinishLaunching", this means homebridge already finished loading cached accessories.
+    // Platform Plugin should only register new accessory that doesn't exist in homebridge after this event.
+    // Or start discover new accessories.
+    this.api.on('didFinishLaunching', function() {
+      platform.log("DidFinishLaunching");
+    }.bind(this));
   }
 }
 
@@ -88,89 +64,9 @@ Esp8266Dht22Server.prototype.configureAccessory = function(accessory) {
   this.accessories.push(accessory);
 }
 
-// Handler will be invoked when user try to config your plugin.
-// Callback can be cached and invoke when necessary.
-Esp8266Dht22Server.prototype.configurationRequestHandler = function(context, request, callback) {
-  this.log("Context: ", JSON.stringify(context));
-  this.log("Request: ", JSON.stringify(request));
-
-  // Check the request response
-  if (request && request.response && request.response.inputs && request.response.inputs.name) {
-    this.addAccessory(request.response.inputs.name);
-
-    // Invoke callback with config will let homebridge save the new config into config.json
-    // Callback = function(response, type, replace, config)
-    // set "type" to platform if the plugin is trying to modify platforms section
-    // set "replace" to true will let homebridge replace existing config in config.json
-    // "config" is the data platform trying to save
-    callback(null, "platform", true, {"platform":"Esp8266Dht22Server"});
-    return;
-  }
-
-  // - UI Type: Input
-  // Can be used to request input from user
-  // User response can be retrieved from request.response.inputs next time
-  // when configurationRequestHandler being invoked
-
-  // var respDict = {
-  //   "type": "Interface",
-  //   "interface": "input",
-  //   "title": "Add Accessory",
-  //   "items": [
-  //     {
-  //       "id": "name",
-  //       "title": "Name",
-  //       "placeholder": "Fancy Light"
-  //     }//,
-  //     // {
-  //     //   "id": "pw",
-  //     //   "title": "Password",
-  //     //   "secure": true
-  //     // }
-  //   ]
-  // }
-
-  // - UI Type: List
-  // Can be used to ask user to select something from the list
-  // User response can be retrieved from request.response.selections next time
-  // when configurationRequestHandler being invoked
-
-  // var respDict = {
-  //   "type": "Interface",
-  //   "interface": "list",
-  //   "title": "Select Something",
-  //   "allowMultipleSelection": true,
-  //   "items": [
-  //     "A","B","C"
-  //   ]
-  // }
-
-  // - UI Type: Instruction
-  // Can be used to ask user to do something (other than text input)
-  // Hero image is base64 encoded image data. Not really sure the maximum length HomeKit allows.
-
-  // var respDict = {
-  //   "type": "Interface",
-  //   "interface": "instruction",
-  //   "title": "Almost There",
-  //   "detail": "Please press the button on the bridge to finish the setup.",
-  //   "heroImage": "base64 image data",
-  //   "showActivityIndicator": true,
-  // "showNextButton": true,
-  // "buttonText": "Login in browser",
-  // "actionURL": "https://google.com"
-  // }
-
-  // Plugin can set context to allow it track setup process
-  context.ts = "Hello";
-
-  // Invoke callback to update setup UI
-  callback(respDict);
-}
-
 // Sample function to show how developer can add accessory dynamically from outside event
 Esp8266Dht22Server.prototype.addAccessory = function(accessoryName, temperature, humidity) {
-  this.log("Add Accessory");
+  this.log("Add Accessory" + accessoryName);
   var platform = this;
   var uuid;
 
@@ -178,26 +74,29 @@ Esp8266Dht22Server.prototype.addAccessory = function(accessoryName, temperature,
 
   var newAccessory = new Accessory(accessoryName, uuid);
   newAccessory.on('identify', function(paired, callback) {
-    //platform.log(accessory.displayName, "Identify!!!");
     callback();
   });
-  // Plugin can save context on accessory to help restore accessory in configureAccessory()
-  // newAccessory.context.something = "Something"
 
   // Make sure you provided a name for service, otherwise it may not visible in some HomeKit apps
-  newAccessory.addService(Service.TemperatureSensor, accessoryName+"-TemperatureSensor")
-  .getCharacteristic(Characteristic.CurrentTemperature)
-  .setProps({ minValue: -30, maxValue: 50 })
-  //.setCharacteristic(Characteristic.CurrentTemperature, temperature);
+  newAccessory.addService(Service.TemperatureSensor, accessoryName + "-TemperatureSensor")
+    .getCharacteristic(Characteristic.CurrentTemperature)
+    .setProps({
+      minValue: -30,
+      maxValue: 50
+    })
 
-  newAccessory.addService(Service.HumiditySensor, accessoryName+"-HumiditySensor")
-  .getCharacteristic(Characteristic.CurrentRelativeHumidity)
-  .setProps({ minValue: 0, maxValue: 100 })
-  //.setCharacteristic(Characteristic.CurrentRelativeHumidity, humidity);
-  //newAccessory.getService("Test TemperatureSensor").setCharacteristic(Characteristic.CurrentTemperature, 17)
+  newAccessory.addService(Service.HumiditySensor, accessoryName + "-HumiditySensor")
+    .getCharacteristic(Characteristic.CurrentRelativeHumidity)
+    .setProps({
+      minValue: 0,
+      maxValue: 100
+    })
 
-  newAccessory.getService(newAccessory.displayName+"-TemperatureSensor").setCharacteristic(Characteristic.CurrentTemperature, temperature);
-  newAccessory.getService(newAccessory.displayName+"-HumiditySensor").setCharacteristic(Characteristic.CurrentRelativeHumidity, humidity);
+  newAccessory.getService(newAccessory.displayName + "-TemperatureSensor")
+    .setCharacteristic(Characteristic.CurrentTemperature, temperature);
+
+  newAccessory.getService(newAccessory.displayName + "-HumiditySensor")
+    .setCharacteristic(Characteristic.CurrentRelativeHumidity, humidity);
 
 
   this.accessories.push(newAccessory);
@@ -221,6 +120,9 @@ Esp8266Dht22Server.prototype.removeAccessory = function() {
 }
 
 Esp8266Dht22Server.prototype.setTemperature = function(accessory, temperature, humidity) {
-    accessory.getService(accessory.displayName+"-TemperatureSensor").setCharacteristic(Characteristic.CurrentTemperature, temperature);
-    accessory.getService(accessory.displayName+"-HumiditySensor").setCharacteristic(Characteristic.CurrentRelativeHumidity, humidity);
+  accessory.getService(accessory.displayName + "-TemperatureSensor")
+    .setCharacteristic(Characteristic.CurrentTemperature, temperature);
+
+  accessory.getService(accessory.displayName + "-HumiditySensor")
+    .setCharacteristic(Characteristic.CurrentRelativeHumidity, humidity);
 }

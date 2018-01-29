@@ -1,6 +1,6 @@
 var express = require('express');
 
-module.exports = function(log, platform) {
+module.exports = function(log, platform, port) {
   var app = express();
   app.use(express.json());
   var platform = platform;
@@ -25,7 +25,7 @@ module.exports = function(log, platform) {
 
   });
 
-  app.listen(2604, function() {
+  app.listen(port, function() {
     log('Temperature and humidity server listening at 2604!');
   });
 }
