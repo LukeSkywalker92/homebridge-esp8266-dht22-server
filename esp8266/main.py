@@ -1,14 +1,10 @@
 import machine
+import dht
 import utime
 import urequests
 
 led = machine.Pin(2, machine.Pin.OUT)
-
-temps = [31, -10, 15, 5, 12, 13, 21, -14]
-hums = [99, 80, 50, 66, 75, 90, 100, 99]
-i = 0
-
-print(i)
+sensor = dht.DHT22(machine.Pin(12))
 
 def do_connect():
     led.off()
@@ -25,18 +21,14 @@ def do_connect():
     start_logging()
 
 def send_data():
-    global i
-    urequests.post("http://192.168.178.79:2604/sendData", json={"displayName": "NodeMCU", "temperature": temps[i], "humidity": hums[i]}, headers = {u'content-type': u'application/json'})
-    if i < 7:
-        i += 1
-    else:
-        i = 0
+    sensor.measure()
+    urequests.post("http://192.168.178.15:2604/sendData", json={"displayName": "Pergola", "temperature": sensor.temperature(), "humidity": sensor.humidity()}, headers = {u'content-type': u'application/json'})
 
 def start_logging():
     while True:
         led.off()
         send_data()
         led.on()
-        utime.sleep(5)
+        utime.sleep(30)
 
 do_connect()
